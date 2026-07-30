@@ -1,15 +1,41 @@
 # A computer-assisted proof of Kuperberg's six-cylinder conjecture
 
-Ivan Matic and Rados Radoicic 
+Ivan Matic and Rados Radoicic
 
 For the most current version of the paper, please visit
+<https://imomath.com/maticivan>.
 
-https://imomath.com/maticivan 
+## Building and running
 
-One output file is too large for github. You can generate the file yourself by either (1) compiling and executing the binary, or (2) downloading from dropbox:  
-https://www.dropbox.com/scl/fi/29c747kertknl681f434j/cyl_outputData.txt?rlkey=56ndbd9ybaghwqvqvzxnyum5s&st=usi0x79j&dl=0
+The program requires a C++23 compiler.
 
+    make
+    ./cyl -i cyl_inputData.txt -o cyl_outputData
 
-## Parallel program is the default
-The parallel program is faster to execute because it uses all available cores of the CPU. However, if you are analyzing the source files, you may wish to start with nonParallel version. If you want non-parallel program, swap the folders src/cylinders_nonParallel and src/cylinders, before compiling the binary.
+This writes `cyl_outputData.tex`, a summary of the certificate, and
+`cyl_outputData.txt`, the box-by-box printout of all cases.
 
+## The parallel program is the default
+
+The parallel program uses all available cores and finishes in under 5 minutes
+on most modern computers. The non-parallel program may take up to 20 minutes.
+
+If you are reading the source rather than running it, you may prefer the
+non-parallel version, which is simpler. To use it, rename the folders before
+compiling:
+
+    mv src/cylinders src/cylinders_parallel
+    mv src/cylinders_nonParallel src/cylinders
+    make
+
+## The large output file
+
+`cyl_outputData.txt` is too large for GitHub. Generate it as above, or
+download a copy:
+
+<https://www.dropbox.com/scl/fi/29c747kertknl681f434j/cyl_outputData.txt?rlkey=56ndbd9ybaghwqvqvzxnyum5s&st=usi0x79j&dl=0>
+ 
+
+## License
+
+MIT. See `LICENSE`.
