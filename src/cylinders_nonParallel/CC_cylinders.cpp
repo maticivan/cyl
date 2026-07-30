@@ -244,6 +244,7 @@ std::string polXYZSummary(long i,const std::string& polName,const PA::Polynomial
 }
 std::string mainWork(const std::string& _srcTxt, const std::string& scDest){
     CPC::TestSetup ts=CPC::getFromFile(_srcTxt);
+    if(ts.success==0){return "Failed.";}
     PA::Polynomial<Frac> p20G3;
     PA::Polynomial<Frac> pUh3;
     PA::Polynomial<Frac> pQh3;
