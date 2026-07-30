@@ -23,8 +23,8 @@
 #ifndef _INCL_FA_CPP
 #define _INCL_FA_CPP
 namespace FA{
-int GL_OVERFLOW=0;
-int GL_DIVBY0=0;
+std::atomic<int> GL_OVERFLOW=0;
+std::atomic<int> GL_DIVBY0=0;
 __int128 multiplyBigNumbers(__int128 a, __int128 b){
     __int128 c;
     if(__builtin_mul_overflow(a, b, &c)){ GL_OVERFLOW = 1; }
