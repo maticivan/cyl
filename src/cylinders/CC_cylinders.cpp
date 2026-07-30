@@ -21,8 +21,8 @@
 //*************************************************************************************************
 
 
-#ifndef _INCL_CC_CPP
-#define _INCL_CC_CPP
+#ifndef __INCL_CC_CPP
+#define __INCL_CC_CPP
 namespace CC{
 std::string helpString(){
     std::string res;
@@ -97,55 +97,52 @@ int succeedOnOneBox(const std::vector<std::vector<std::vector<Frac> > > &mGh,
     if(whichInequalityCanBeGuaranteedOnBox(mQh,b)==-1){return 2;}
     if(whichInequalityCanBeGuaranteedOnBox(mGh,b)== 1){return 3;}
     return 0;
-}
-struct TestResult{
-public:
-    std::string comment;
-    long counterPartition;
-    int success;
-};
-TestResult runTest(const PA::Polynomial<Frac>& Gh, const PA::Polynomial<Frac>& Uh, const PA::Polynomial<Frac>& Qh){
-    TestResult res;
-    res.success=0;
-    res.counterPartition=0;
-    std::vector<std::vector<std::vector<Frac> > > mGh=PA::polMatrix(Gh);
-    std::vector<std::vector<std::vector<Frac> > > mUh=PA::polMatrix(Uh);
-    std::vector<std::vector<std::vector<Frac> > > mQh=PA::polMatrix(Qh);
-    CPC::Box<Frac> bigBox,currentBox;
+} 
+void runTestP(long threadId, long* nThreads,
+              fst::stack<CPC::Box<Frac> >* sBoxes,
+              long* numStacksForOneEll,
+              fst::stack<CPC::Box<Frac> >* a_r_B,
+              long* a_forTotalCounters,
+              int* a_forSuccess,
+              std::vector<std::vector<std::vector<Frac> > >* a_mGh,
+              std::vector<std::vector<std::vector<Frac> > >* a_mUh,
+              std::vector<std::vector<std::vector<Frac> > >* a_mQh){
+    long ellShiftStacks=0;
+    long stackToWork;
+    long writingPosition=threadId;
+    int& ind_success=*a_forSuccess;
+    long giveUpCounter;
     int successInd;
-    std::stack<CPC::Box<Frac> > remaining;
-    remaining.push(bigBox);
-    CPC::removeTopThenSplitAndAddToStack(remaining);
-    long giveUpCounter=5000000;
-    while((remaining.size()>0)&&(giveUpCounter>0)){
-        --giveUpCounter;currentBox=remaining.top();
-        if(giveUpCounter%10000==0){
-            std::cout<<"Give-up-counter is "<<
-            giveUpCounter<<" remaining boxes = "
-            <<remaining.size()<<" certified so far = "<<res.counterPartition
-            <<" overflow flag = "<<FA::GL_OVERFLOW<<"\n";
-            if(FA::GL_OVERFLOW){std::cout<<"OVERFLOW: aborting face.\n";return res;}
+    CPC::Box<Frac> currentBox;
+    for(long ell=0;ell<4;++ell){
+        fst::stack<CPC::Box<Frac> >& wB= a_r_B[writingPosition];
+        long& totalCounter=a_forTotalCounters[writingPosition];
+        stackToWork=threadId;
+        while(stackToWork<*numStacksForOneEll){
+            giveUpCounter=5000000;
+            fst::stack<CPC::Box<Frac> >& remaining=sBoxes[stackToWork+ellShiftStacks];
+            while((remaining.size()>0)&&(giveUpCounter>0)){
+                    --giveUpCounter;currentBox=remaining.top();
+                    successInd=succeedOnOneBox(a_mGh[ell],a_mUh[ell],a_mQh[ell],currentBox);
+                    if(successInd!=0){
+                        remaining.pop();
+                        ++totalCounter;
+                        currentBox.inequalityCode=successInd;
+                        wB.push(currentBox);
+                    }
+                    else{
+                        CPC::removeTopThenSplitAndAddToStack(remaining);
+                    }
+                }
+                if(remaining.size()!=0){
+                    ind_success=0;
+                }
+            stackToWork+=*nThreads;
         }
-        successInd=succeedOnOneBox(mGh,mUh,mQh,currentBox);
-        if(successInd!=0){
-            remaining.pop();
-            ++res.counterPartition;
-            res.comment+="[";
-            for(long i=0;i<3;++i){
-                res.comment+="[["+PA::printDiadicRational(currentBox.ls[i])+"][";
-                res.comment+=PA::printDiadicRational(currentBox.hs[i])+"]]";
-            }
-            res.comment+="["+std::to_string(successInd)+"]";
-            res.comment+="]\n";
-        }
-        else{
-            CPC::removeTopThenSplitAndAddToStack(remaining);
-        }
+        
+        ellShiftStacks+=*numStacksForOneEll;
+        writingPosition+=*nThreads;
     }
-    if(remaining.size()==0){
-        res.success=1;
-    }
-    return res;
 }
 std::string initialCommentBoxes(){
     std::string res;
@@ -165,7 +162,7 @@ std::string printSetup(const CPC::TestSetup &ts){
         res+="\\subsection{Matrix $D_"+std::to_string(ell)+"$}\n";
         res+="We will write the matrix $D^{-1}$ instead of $D$. The matrices $D$ and $D^{-1}$ ";
         res+="are diagonal, so one is easy to construct from the other. The matrix $D^{-1}$ is ";
-        res+="more convenient becauce the denominators of diagonal terms are powers of $2$. Therefore, ";
+        res+="more convenient because the denominators of diagonal terms are powers of $2$. Therefore, ";
         res+="their binary expressions are finite and there is no rounding in computer storage.";
         res+="\\[D_"+std::to_string(ell)+"^{-1}=\\left[\\begin{array}{";
         for(long i=0;i<2*ell+1;++i){res+="c";}
@@ -244,41 +241,162 @@ std::string polXYZSummary(long i,const std::string& polName,const PA::Polynomial
     res+="\\begin{align*}"+polName+"(x,y,z)&="+pxyz.toString()+"\\end{align*}";
     return res;
 }
+void splitUntilAcceptable(fst::stack<CPC::Box<Frac> >& allBoxes,
+                          const CPC::Box<Frac>& boxToSplit,
+                          Frac targetSize){
+    if( !(targetSize<boxToSplit.hs[0]-boxToSplit.ls[0])){
+        allBoxes.push(boxToSplit);
+        return;
+    }
+    fst::stack<CPC::Box<Frac> > oneSplit(8);
+    oneSplit.push(boxToSplit);
+    CPC::removeTopThenSplitAndAddToStack(oneSplit);
+    while(!oneSplit.empty()){
+        splitUntilAcceptable(allBoxes,oneSplit.top(),targetSize);
+        oneSplit.pop();
+    }
+}
+std::pair<fst::stack<CPC::Box<Frac> >*,long> splitIntoBoxes(int exponentOfDenominator,int numCopies){
+    // .second of the return value will be the number of stacks in one of the numCopies
+    // .first will be an array of stacks of length (.second)*numCopies
+    std::pair<fst::stack<CPC::Box<Frac> >*,long> res;
+    CPC::Box<Frac> bigBox;
+    Frac targetSize(1);Frac oneHalf(1,2);
+    long numInOneCopy=1;
+    for(int j=0;j<exponentOfDenominator;++j){
+        targetSize*=oneHalf;
+        numInOneCopy*=8;
+    }
+    numInOneCopy*=8;
+    res.second=numInOneCopy;
+    long total=numInOneCopy*numCopies;
+    res.first=new fst::stack<CPC::Box<Frac> >[total];
+    fst::stack<CPC::Box<Frac> > allBoxes(numInOneCopy);
+    splitUntilAcceptable(allBoxes,bigBox,targetSize);
+    std::vector<long> permutation=RNDF::genMTwistPermutation(numInOneCopy);
+    long i=0;
+    while(i<numInOneCopy){
+        long j=permutation[i];
+        while(j<total){
+            ((res.first)[j]).push(allBoxes.top());
+            j+=numInOneCopy;
+        }
+        allBoxes.pop();
+        ++i;
+    }
+    return res;
+}
 std::string mainWork(const std::string& _srcTxt, const std::string& scDest){
     CPC::TestSetup ts=CPC::getFromFile(_srcTxt);
-    PA::Polynomial<Frac> p20G3;
-    PA::Polynomial<Frac> pUh3;
-    PA::Polynomial<Frac> pQh3;
-    TestResult res1T;
+    if(ts.success==0){return "Failed.";}
+    long nThreads=std::thread::hardware_concurrency();
+    if(nThreads==0){nThreads=1;}
+    std::cout<<"Partitioning the box and verifying the inequalities. This may take a while.\n";
+    if(nThreads==1){
+        std::cout<<"Your CPU has only one core. This may take up to 20 minutes.\n";
+    }
+    else{
+        std::cout<<"Your CPU has multiple cores. I'll use them.\nNumber of threads that ";
+        std::cout<<"are available to me is ";
+        std::cout<<nThreads<<"\n";
+    }
     int success=1;
     std::string res,resB;
     long totalCounter=0;
     res+=printSetup(ts);
     resB+=initialCommentBoxes();
+    std::vector<std::vector<std::vector<Frac> > >* mGh=new std::vector<std::vector<std::vector<Frac> > >[4];
+    std::vector<std::vector<std::vector<Frac> > >* mUh=new std::vector<std::vector<std::vector<Frac> > >[4];
+    std::vector<std::vector<std::vector<Frac> > >* mQh=new std::vector<std::vector<std::vector<Frac> > >[4];
+    PA::Polynomial<Frac>* a_pUh3=new PA::Polynomial<Frac>[4];
+    PA::Polynomial<Frac>* a_pQh3=new PA::Polynomial<Frac>[4];
+    PA::Polynomial<Frac>* a_p20G3=new PA::Polynomial<Frac>[4];
     for(long i=0;i<4;++i){
-        resB+="\n\n\n*** Substitution q_"+std::to_string(i)+"=1 ***\n\n";
-        res+="\\section{Substitution $q_"+std::to_string(i)+"=1$"+"}\n";
-        std::cout<< ("\n\n\n*** Substitution q_"+std::to_string(i)+"=1 ***\n\n");
         std::map<std::string,Frac> vEval;
         vEval["q_"+std::to_string(i)]=1;
-        p20G3=ts.pol_20G.evaluate(vEval);
-        pUh3=ts.pol_Uh.evaluate(vEval);
-        pQh3=ts.pol_Qh.evaluate(vEval);
-        res+=polXYZSummary(i,"U_h",pUh3);
-        res+=polXYZSummary(i,"Q_h",pQh3);
-        res+=polXYZSummary(i,"20G",p20G3);
-        res1T=runTest(p20G3,pUh3,pQh3);
-        std::cout<<"Test "<<i<<": "<<res1T.success<<"\n";
-        resB+="Total number of boxes in the partition = "+std::to_string(res1T.counterPartition)+"\n\n";
-        resB+=res1T.comment;
-        totalCounter+=res1T.counterPartition;
-        success*=res1T.success;
+        a_pUh3[i]=ts.pol_Uh.evaluate(vEval);
+        a_pQh3[i]=ts.pol_Qh.evaluate(vEval);
+        a_p20G3[i]=ts.pol_20G.evaluate(vEval);
+        
+        
+        mGh[i]=PA::polMatrix(a_p20G3[i]);
+        mUh[i]=PA::polMatrix(a_pUh3[i]);
+        mQh[i]=PA::polMatrix(a_pQh3[i]);
     }
+    //presplitting to side  1/4 is lossless: an instrumented run of the adaptive algorithm showed
+    //the largest box ever certified has side 1/4 on every face, so the adaptive tree contains the
+    //uniform depth-3 tree.
+    std::pair<fst::stack<CPC::Box<Frac> >*,long> bSplit=splitIntoBoxes(2,4);
+    std::thread* allTh=new std::thread[nThreads];
+    fst::stack<CPC::Box<Frac> >* a_Res_B=new fst::stack<CPC::Box<Frac> >[4*nThreads];
+    for(long i=0;i<4*nThreads;++i){
+        a_Res_B[i].setFastStorageCapacity(200000);
+    }
+    long* aTotalCounters=new long[4*nThreads];
+    for(long i=0;i<4*nThreads;++i){aTotalCounters[i]=0;}
+    int* aSuccesses=new int[nThreads];
+    for(long i=0;i<nThreads;++i){aSuccesses[i]=1;}
+    for(long i=0;i<nThreads;++i){
+        allTh[i]=std::thread(runTestP,
+                             i,&nThreads,
+                             bSplit.first,
+                             &(bSplit.second),
+                             a_Res_B,
+                             aTotalCounters,aSuccesses+i,
+                             mGh, mUh, mQh
+                             );
+    }
+    for(long i=0;i<nThreads;++i){
+        allTh[i].join();
+        for(long ell=0;ell<4;++ell){
+            totalCounter+=aTotalCounters[i+ell*nThreads];
+        }
+        
+        success*=aSuccesses[i];
+    }
+    long base=0;
+    for(long ell=0;ell<4;++ell){
+        resB+="\n\n\n*** Substitution q_"+std::to_string(ell)+"=1 ***\n\n";
+        res+="\\section{Substitution $q_"+std::to_string(ell)+"=1$"+"}\n";
+        res+=polXYZSummary(ell,"U_h",a_pUh3[ell]);
+        res+=polXYZSummary(ell,"Q_h",a_pQh3[ell]);
+        res+=polXYZSummary(ell,"20G",a_p20G3[ell]);
+        long counterPartition=0;
+        ssm::set<CPC::Box<Frac> > sAll;
+        for(long i=0;i<nThreads;++i){
+            while(!((a_Res_B[base+i]).empty())){
+                sAll.insert((a_Res_B[base+i]).top());
+                (a_Res_B[base+i]).pop();
+            }
+            counterPartition+=aTotalCounters[base+i];
+        }
+        for(long i=0;i<sAll.size();++i){
+            CPC::Box<Frac> currentBox=sAll[i];
+            resB+="[";
+            for(long i=0;i<3;++i){
+                resB+="[["+PA::printDiadicRational(currentBox.ls[i])+"][";
+                resB+=PA::printDiadicRational(currentBox.hs[i])+"]]";
+            }
+            resB+="["+std::to_string(currentBox.inequalityCode)+"]";
+            resB+="]\n";
+        }
+        resB+="Total number of boxes in the partition = "+std::to_string(counterPartition)+"\n\n";
+        base+=nThreads;
+    }
+    delete[] aSuccesses;
+    delete[] aTotalCounters;
+    delete[] a_Res_B;
+    delete[] allTh;
+    delete[] bSplit.first;
+    
+    delete[] mGh;
+    delete[] mUh;
+    delete[] mQh;
     IOF::toFile(scDest+".tex",res);
     IOF::toFile(scDest+".txt",resB);
     return "Success = "+std::to_string(success)
             +"\nTotal number of certified boxes: "
-            +std::to_string(totalCounter);;
+            +std::to_string(totalCounter);
 }
 }
 
