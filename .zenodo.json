@@ -1,0 +1,12 @@
+{
+  "title": "Source code and certificate for a computer-assisted proof of Kuperberg's six-cylinder conjecture",
+  "upload_type": "software",
+  "license": "MIT",
+  "creators": [
+    { "name": "Matić, Ivan",
+      "affiliation": "Baruch College, City University of New York" },
+    { "name": "Radoičić, Radoš",
+      "affiliation": "Baruch College, City University of New York" }
+  ],
+  "description": "Exact-arithmetic verifier and certificate for the proof that at most six pairwise non-overlapping infinite unit cylinders can touch a unit ball."
+}
