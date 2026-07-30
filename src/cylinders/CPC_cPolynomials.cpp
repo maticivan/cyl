@@ -24,8 +24,8 @@
 #ifndef _INCL_CPC_CPP
 #define _INCL_CPC_CPP
 namespace CPC{
-    long GL_skipF1Verification=0;
-    long GL_skipF2Verification=0;
+    long GL_skipMultVerification=0;
+    long GL_skipOrthVerification=0;
     long GL_stringSizeLimit=1000;
     std::string GL_openTag="{";
     std::string GL_closeTag="}";
@@ -370,8 +370,29 @@ namespace CPC{
         res[3]+=tmp;
         return res;
     }
-    int checkF1(const std::vector<std::vector<PA::Polynomial<Frac> > >& TL){
-        if(GL_skipF1Verification){return 1;}
+void substitutionsP(long jobNumber,long* nThreads,
+                    long* dimSquare,
+                    std::vector<std::vector<PA::Polynomial<Frac> > >* TLH,
+                    std::vector<std::vector<PA::Polynomial<Frac> > >* TP,
+                    std::vector<std::vector<PA::Polynomial<Frac> > > const * TL,
+                    std::map<std::string,PA::Polynomial<Frac> > const * hamiltonSubstitution,
+                    std::map<std::string,PA::Polynomial<Frac> > const * qpSubstitution){
+    //there is a total of dimSquare jobs
+    long i;long j;
+    long dim=(*TLH).size();
+    while(jobNumber<*dimSquare){
+        i=jobNumber%dim;
+        j=(jobNumber/dim)%dim;
+        (*TLH)[i][j]=PA::substitute((*TL)[i][j],*hamiltonSubstitution);
+        (*TP)[i][j]=PA::substitute((*TL)[i][j],*qpSubstitution);
+        jobNumber+=*nThreads;
+    }
+}
+                     
+    int checkMultiplicativity(const std::vector<std::vector<PA::Polynomial<Frac> > >& TL){
+        TMF::Timer innerT;
+        innerT.start();
+        if(GL_skipMultVerification){return 1;}
         std::map<std::string,PA::Polynomial<Frac> > hamiltonSubstitution,qpSubstitution;
         std::vector<PA::Polynomial<Frac> > hamiltonProduct=hamiltonProductBasic();
         for(long i=0;i<4;++i){
@@ -382,14 +403,43 @@ namespace CPC{
             qpSubstitution["q_"+std::to_string(i)]=pI;
         }
         std::vector<std::vector<PA::Polynomial<Frac> > > TLH=TL, TP=TL;//just to get the formats right
-
-        for(long i=0;i<TLH.size();++i){
-            for(long j=0;j<TLH[i].size();++j){
-                TLH[i][j]=PA::substitute(TL[i][j],hamiltonSubstitution);
-                TP[i][j]=PA::substitute(TL[i][j],qpSubstitution);
+        innerT.end();
+        std::cout<<"Phase 1: map creation and hamilton product finished in "<<innerT.getTimeSec()<<" seconds.\n";
+        innerT.start();
+        if(TLH.size()<6){
+            for(long i=0;i<TLH.size();++i){
+                for(long j=0;j<TLH[i].size();++j){
+                    TLH[i][j]=PA::substitute(TL[i][j],hamiltonSubstitution);
+                    TP[i][j]=PA::substitute(TL[i][j],qpSubstitution);
+                }
             }
         }
+        else{
+            long nThreads=std::thread::hardware_concurrency();
+            if(nThreads==0){nThreads=1;}
+            std::thread* allTh=new std::thread[nThreads];
+            long dimSquare=TLH.size()*TLH.size();
+            for(long i=0;i<nThreads;++i){
+                allTh[i]=std::thread(substitutionsP,
+                                     i,&nThreads,&dimSquare,
+                                     &TLH, &TP, &TL,
+                                     &hamiltonSubstitution,
+                                     &qpSubstitution
+                                     );
+            }
+            for(long i=0;i<nThreads;++i){
+                allTh[i].join();
+            }
+            delete[] allTh;
+        }
+        
+        innerT.end();
+        std::cout<<"Phase 2: Hamilton substitution and qp substitution finished in "<<innerT.getTimeSec()<<" seconds. \n";
+        innerT.start();
         std::vector<std::vector<PA::Polynomial<Frac> > > TProd=TP*TL;
+        innerT.end();
+        std::cout<<"Phase 3: Product of matrices finished in "<<innerT.getTimeSec()<<" seconds. \n";
+        innerT.start();
         for(long i=0;i<TLH.size();++i){
             for(long j=0;j<TLH[i].size();++j){
                 if(equal(TLH[i][j],TProd[i][j])==0){
@@ -397,12 +447,14 @@ namespace CPC{
                 }
             }
         }
+        innerT.end();
+        std::cout<<"Phase 4: Equality check finished in "<<innerT.getTimeSec()<<" seconds. \n";
         return 1;
     }
-    int checkF2(const std::vector<std::vector<PA::Polynomial<Frac> > >& TL,
+    int checkOrthogonality(const std::vector<std::vector<PA::Polynomial<Frac> > >& TL,
                 const std::vector<long>& array_dNum,
                 const std::vector<long>& array_dDen){
-        if(GL_skipF2Verification){return 1;}
+        if(GL_skipOrthVerification){return 1;}
         std::vector<std::vector<PA::Polynomial<Frac> > > matrixD;
         std::vector<PA::Polynomial<Frac> > placeHolderRow;
         long dim=TL.size();
@@ -439,17 +491,15 @@ namespace CPC{
         return 1;
     }
     
-    int checkConditionsF1AndF2(const std::vector<std::vector<std::vector<PA::Polynomial<Frac> > > >& array_TPolynomials,
+    int checkMultiplicativityAndOrthogonality(const std::vector<std::vector<std::vector<PA::Polynomial<Frac> > > >& array_TPolynomials,
                                const std::vector<std::vector<long> >& array_dNums,
                                const std::vector<std::vector<long> >& array_dDens){
         int success=1;
         long l=0;
         while(l<4){
-            std::cout<<"F1 and F2 checks for l="<<l+1<<".";
-            if(l==2){std::cout<<" Please be patient.";}
-            if(l==3){std::cout<<" Please be very patient.";}
+            std::cout<<"Multiplicativity and orthogonality checks for ell="<<l+1<<".";
             std::cout<<"\n";
-            success*=checkF1(array_TPolynomials[l])*checkF2(array_TPolynomials[l],array_dNums[l],array_dDens[l]);
+            success*=checkMultiplicativity(array_TPolynomials[l])*checkOrthogonality(array_TPolynomials[l],array_dNums[l],array_dDens[l]);
             if(success==1){
                 std::cout<<"Passed. \n";
             }
@@ -490,7 +540,7 @@ namespace CPC{
         }
         return res;
     }
-    int isTHomogenous(const std::vector<std::vector<long> >& T, long twoEll){
+    int checkHomogeneity(const std::vector<std::vector<long> >& T, long twoEll){
         int res=1;
         long i=T.size();
         while((i>0)&&(res==1)){
@@ -516,19 +566,19 @@ namespace CPC{
         long L4=4;
         array_TPolynomials.resize(L4);
         array_invWDiagonals.resize(L4);
-        int indicatorTHomogenous=1;
+        int indicatorHomogeneity=1;
         int indicatorWPositive=1;
         std::vector<std::vector<long> > array_dNums,array_dDens;
         array_dNums.resize(L4);array_dDens.resize(L4);
         std::map<std::string,std::string>::const_iterator it;
         std::map<std::string,std::string> mainMap=SF::stringToMap(_in,"[key]","[/key]","[value]","[/value]");
-        it=mainMap.find("skipF1Verification");
+        it=mainMap.find("skipMultVerification");
         if(it!=mainMap.end()){
-            if(it->second=="yes"){GL_skipF1Verification=1;}
+            if(it->second=="yes"){GL_skipMultVerification=1;}
         }
-        it=mainMap.find("skipF2Verification");
+        it=mainMap.find("skipOrthVerification");
         if(it!=mainMap.end()){
-            if(it->second=="yes"){GL_skipF2Verification=1;}
+            if(it->second=="yes"){GL_skipOrthVerification=1;}
         }
         it=mainMap.find("stringSizeLimit");
         if(it!=mainMap.end()){
@@ -548,12 +598,12 @@ namespace CPC{
             it=mainMap.find("Tpoly000"+std::to_string(ell));
             if(it==mainMap.end()){return 0;}
             std::vector<std::vector<long> > tRaw=matrixLongFromString(it->second);
-            indicatorTHomogenous*=isTHomogenous(tRaw,2*ell);
+            indicatorHomogeneity*=checkHomogeneity(tRaw,2*ell);
             indicatorWPositive*=areWsPositive(array_dDens[l],array_dNums[l]);
             array_invWDiagonals[l]=divideVectors(array_dDens[l],array_dNums[l]);
             array_TPolynomials[l]=createTPolynomial(tRaw,tDenominator,ell);
         }
-        return indicatorTHomogenous*indicatorWPositive*checkConditionsF1AndF2(array_TPolynomials,array_dNums,array_dDens);
+        return indicatorHomogeneity*indicatorWPositive*checkMultiplicativityAndOrthogonality(array_TPolynomials,array_dNums,array_dDens);
     }
     std::vector<std::vector<Frac> > divideByScalar(const std::vector<std::vector<long> >& M, long den){
         std::vector<std::vector<Frac> > res;
@@ -570,7 +620,7 @@ namespace CPC{
         }
         return res;
     }
-    int checkConditionsForC(const std::vector<std::vector<long> >& C,
+    int checkPsdWitness(const std::vector<std::vector<long> >& C,
                             const std::vector<std::vector<long> >& W,
                             long sWitt){
         //number sWitt must be positive for this test to be meaningful
@@ -616,7 +666,7 @@ namespace CPC{
             it=mainMap.find("Wwit000"+std::to_string(ell));
             if(it==mainMap.end()){return 0;}
             std::vector<std::vector<long> > wLong=matrixLongFromString(it->second);
-            if(!checkConditionsForC(cLong,wLong,sWitt)){
+            if(!checkPsdWitness(cLong,wLong,sWitt)){
                 return 0;
             }
             array_C[l]=divideByScalar(cLong,twoTo20);
@@ -651,13 +701,22 @@ namespace CPC{
         PA::Polynomial<Frac> pol_20G;
         PA::Polynomial<Frac> pol_Uh;
         PA::Polynomial<Frac> pol_Qh;
+        int success=0;
     };
     TestSetup getFromFile(const std::string& inS){
-        TestSetup res;
-        int succ=getFromString(inS,res.array_TPolynomials,res.array_invWDiagonals);
-        std::cout<<"Success T = "<<succ<<"\n";
-        succ=getFromString(inS, res.array_C, res.array_invWDiagonals);
-        std::cout<<"Success C = "<<succ<<"\n";
+        TestSetup res;res.success=0;
+        res.success=getFromString(inS,res.array_TPolynomials,res.array_invWDiagonals);
+        if(res.success==0){
+            std::cout<<"T failed the required conditions\n";
+            return res;
+        }
+        std::cout<<"T satisfies the required conditions\n";
+        res.success=getFromString(inS, res.array_C, res.array_invWDiagonals);
+        if(res.success==0){
+            std::cout<<"C failed the required conditions\n";
+            return res;
+        }
+        std::cout<<"C satisfies the required conditions\n";
         res.pol_20G=create20G(res.array_C,res.array_TPolynomials,res.array_invWDiagonals);
         res.pol_Uh=GL_C.paper_Uh;
         res.pol_Qh=GL_C.paper_Qh;
@@ -668,16 +727,26 @@ namespace CPC{
         std::vector<TTT> ls;
         std::vector<TTT> hs;
         Box();
+        int inequalityCode;
         int operator<(const Box<TTT>& ) const;
     };
     template<typename TTT>
     Box<TTT>::Box(){
+        inequalityCode=0;
         ls.resize(3);hs.resize(3);
         ls[0]=-1;hs[0]=1;ls[1]=-1;hs[1]=1;ls[2]=-1;hs[2]=1;
     }
     template<typename TTT>
     int Box<TTT>::operator<(const Box<TTT>& oth)const{
         long i=0;
+        TTT sz=hs[0]-ls[0];
+        TTT oth_sz=oth.hs[0]-oth.ls[0];
+        if(sz<oth_sz){return 1;}
+        if(oth_sz<sz){return 0;}
+        TTT distFromZero=ls[0]+ls[1]+ls[2];
+        TTT othDistFromZero=oth.ls[0]+oth.ls[1]+oth.ls[2];
+        if(distFromZero<othDistFromZero){return 1;}
+        if(othDistFromZero<distFromZero){return 0;}
         while(i<3){
             if(ls[i]<oth.ls[i]){return 1;}
             if(oth.ls[i]<ls[i]){return 0;}
@@ -688,7 +757,7 @@ namespace CPC{
         return 0;
     }
     template<typename TTT>
-    void removeTopThenSplitAndAddToStack(std::stack<Box<TTT> >& _st){
+    void removeTopThenSplitAndAddToStack(fst::stack<Box<TTT> >& _st){
         if(_st.size()==0){return;}
         Box<TTT> b=_st.top();
         _st.pop();
