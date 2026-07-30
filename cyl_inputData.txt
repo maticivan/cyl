@@ -20,9 +20,9 @@
 //* DEALINGS IN THE SOFTWARE.                                                                     *
 //*************************************************************************************************
 
-[key]skipF1Verification[/key] [value]no[/value] (F1 verification is long; put yes to skip it, or no to run the verification)
+[key]skipMultVerification[/key] [value]no[/value] (the multiplicativity check is long; yes skips it, no runs it)
 
-[key]skipF2Verification[/key] [value]no[/value]
+[key]skipOrthVerification[/key] [value]no[/value] 
 
 [key]stringSizeLimit[/key] [value]10000[/value]
 
