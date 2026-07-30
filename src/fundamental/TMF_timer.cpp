@@ -144,6 +144,30 @@ namespace TMF{
      fR[2]=d;
      return fR;
   }
+std::string secToDHMS(long sT){
+    std::string res;
+    long sec=sT%60;
+    sT/=60;
+    long min=sT%60;
+    sT/=60;
+    long hr=sT%24;
+    sT/=24;
+    long d=sT;
+    if(d<100){res+=" ";}
+    if(d<10){res+=" ";}
+    res+=std::to_string(d);
+    res+="days and ";
+    if(d==0){res="";}
+    if(hr<10){res+="0";}
+    res+=std::to_string(hr);
+    res+=":";
+    if(min<10){res+="0";}
+    res+=std::to_string(min);
+    res+=":";
+    if(sec<10){res+="0";}
+    res+=std::to_string(sec);
+    return res;
+}
   std::vector<long> standardizeTimeVector(const std::vector<long> & _t, const long & _yS=1900){
     // input is a vector of  components (Yr, Mo, Dy, Hr, Min, Sec)
     // where Yr and Mo are correct, however (Dy, Hr, Min, Sec) may be unusual as a result of addition of dates
@@ -233,15 +257,20 @@ namespace TMF{
     long timerStart;
     long timerEnd;
     long timerInProgress;
+      long timerStartSec;
+      long timerEndSec;
   public:
     Timer(const long & =0);
     void start();
     void end();
     long timeNow(const long & = 1000000000) const;
     double getTime() const;
+      long getTimeSec() const;
+      std::string getTimeString() const;
     std::string dayOfTheWeekAbbreviation(const long &) const;
     std::string monthAbbreviation(const long &) const;
     std::vector<long> timeNowVector() const;
+      long timeNowSec() const;
     // returns (year,month,day,hour,minute,second,dayOfTheWeek)
     // month \in {0,1,..., 11}
     // day \in {1,2,..., NumberOfDaysInTheMonth}
@@ -272,15 +301,18 @@ namespace TMF{
     timerInProgress=_inProgress;
     if(timerInProgress==1){
       timerStart=std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        timerStartSec=timeNowSec();
     }
   }
   void Timer::start(){
     timerInProgress=1;
     timerStart=std::chrono::high_resolution_clock::now().time_since_epoch().count();
+      timerStartSec=timeNowSec();
   }
   void Timer::end(){
     timerInProgress=2;
     timerEnd=std::chrono::high_resolution_clock::now().time_since_epoch().count();
+      timerEndSec=timeNowSec();
   }
   double Timer::getTime() const{
     if(timerInProgress!=2){
@@ -290,6 +322,18 @@ namespace TMF{
     fR/= 1000000.0;
     return fR;
   }
+long Timer::getTimeSec() const{
+  if(timerInProgress!=2){
+    return -1.0;
+  }
+  return timerEndSec-timerStartSec;
+}
+std::string Timer::getTimeString() const{
+    if(timerInProgress!=2){
+      return "NA";
+    }
+    return secToDHMS(timerEndSec-timerStartSec);
+}
   long Timer::timeNow(const long &precision) const{
     long fR= std::chrono::high_resolution_clock::now().time_since_epoch().count();
     return fR/precision;
@@ -371,6 +415,7 @@ namespace TMF{
     fR[6]=ptm->tm_wday;
     return fR;
   }
+long Timer::timeNowSec() const{return getSecondsSinceYYYY(timeNowVector());}
   std::string Timer::timeString(const std::vector<long> &v) const{
     std::string fR="";
     if(v.size()!=7){
