@@ -288,8 +288,7 @@ namespace CPC{
                                    const std::vector<std::vector<Frac> >& array_invWDiagonals){
         PA::Polynomial<Frac> res;
         PA::Polynomial<Frac> qSq=createQSquare();
-        PA::Polynomial<Frac> multiplier(1);
-        long L4=array_C.size();//must be 4
+        PA::Polynomial<Frac> multiplier(1); 
         for(long ell=4;ell>0;--ell){
             PA::Polynomial<Frac> FracSummation;
             for(long i=0;i<array_C[ell-1].size();++i){
