@@ -643,21 +643,30 @@ namespace CPC{
     }
 
 
-    struct TestSetup{
-    public:
-        std::vector<std::vector<std::vector<PA::Polynomial<Frac> > > > array_TPolynomials;
-        std::vector<std::vector<Frac> > array_invWDiagonals;
-        std::vector<std::vector<std::vector<Frac> > > array_C;
-        PA::Polynomial<Frac> pol_20G;
-        PA::Polynomial<Frac> pol_Uh;
-        PA::Polynomial<Frac> pol_Qh;
-    };
+struct TestSetup{
+public:
+    std::vector<std::vector<std::vector<PA::Polynomial<Frac> > > > array_TPolynomials;
+    std::vector<std::vector<Frac> > array_invWDiagonals;
+    std::vector<std::vector<std::vector<Frac> > > array_C;
+    PA::Polynomial<Frac> pol_20G;
+    PA::Polynomial<Frac> pol_Uh;
+    PA::Polynomial<Frac> pol_Qh;
+    int success=0;
+};
     TestSetup getFromFile(const std::string& inS){
-        TestSetup res;
-        int succ=getFromString(inS,res.array_TPolynomials,res.array_invWDiagonals);
-        std::cout<<"Identities (hom, mult, orth, weights) = "<<succ<<"\n";
-        succ=getFromString(inS, res.array_C, res.array_invWDiagonals);
-        std::cout<<"Witnesses and trace sum (psd, trace) = "<<succ<<"\n";
+        TestSetup res;res.success=0;
+        res.success=getFromString(inS,res.array_TPolynomials,res.array_invWDiagonals);
+        if(res.success==0){
+            std::cout<<"T failed the required conditions\n";
+            return res;
+        }
+        std::cout<<"T satisfies the required conditions\n";
+        res.success=getFromString(inS, res.array_C, res.array_invWDiagonals);
+        if(res.success==0){
+            std::cout<<"C failed the required conditions\n";
+            return res;
+        }
+        std::cout<<"C satisfies the required conditions\n";
         res.pol_20G=create20G(res.array_C,res.array_TPolynomials,res.array_invWDiagonals);
         res.pol_Uh=GL_C.paper_Uh;
         res.pol_Qh=GL_C.paper_Qh;
