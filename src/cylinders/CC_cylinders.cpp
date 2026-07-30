@@ -223,7 +223,7 @@ std::string printSetup(const CPC::TestSetup &ts){
     res+="\\begin{align*}20G(q_0,q_1,q_2,q_3)&="+ts.pol_20G.toString()+"\\end{align*}\n";
     return res;
 }
-std::string polXYZSummary(long i,const std::string& polName,const PA::Polynomial<Frac>& pol){
+std::string polXYZSummary(const std::string& polName,const PA::Polynomial<Frac>& pol){
     std::string res;
     ssm::set<std::string> avr= PA::allVariables(pol);
     std::map<std::string,PA::Polynomial<Frac> > substMap;
@@ -358,9 +358,9 @@ std::string mainWork(const std::string& _srcTxt, const std::string& scDest){
     for(long ell=0;ell<4;++ell){
         resB+="\n\n\n*** Substitution q_"+std::to_string(ell)+"=1 ***\n\n";
         res+="\\section{Substitution $q_"+std::to_string(ell)+"=1$"+"}\n";
-        res+=polXYZSummary(ell,"U_h",a_pUh3[ell]);
-        res+=polXYZSummary(ell,"Q_h",a_pQh3[ell]);
-        res+=polXYZSummary(ell,"20G",a_p20G3[ell]);
+        res+=polXYZSummary("U_h",a_pUh3[ell]);
+        res+=polXYZSummary("Q_h",a_pQh3[ell]);
+        res+=polXYZSummary("20G",a_p20G3[ell]);
         long counterPartition=0;
         ssm::set<CPC::Box<Frac> > sAll;
         for(long i=0;i<nThreads;++i){
