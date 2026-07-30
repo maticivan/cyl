@@ -106,8 +106,7 @@ public:
 };
 TestResult runTest(const PA::Polynomial<Frac>& Gh,
                    const PA::Polynomial<Frac>& Uh,
-                   const PA::Polynomial<Frac>& Qh,
-                   int testNo){
+                   const PA::Polynomial<Frac>& Qh){
     TestResult res;
     res.success=0;
     res.counterPartition=0;
@@ -224,7 +223,7 @@ std::string printSetup(const CPC::TestSetup &ts){
     res+="\\begin{align*}20G(q_0,q_1,q_2,q_3)&="+ts.pol_20G.toString()+"\\end{align*}\n";
     return res;
 }
-std::string polXYZSummary(long i,const std::string& polName,const PA::Polynomial<Frac>& pol){
+std::string polXYZSummary(const std::string& polName,const PA::Polynomial<Frac>& pol){
     std::string res;
     ssm::set<std::string> avr= PA::allVariables(pol);
     std::map<std::string,PA::Polynomial<Frac> > substMap;
@@ -263,16 +262,16 @@ std::string mainWork(const std::string& _srcTxt, const std::string& scDest){
         p20G3=ts.pol_20G.evaluate(vEval);
         pUh3=ts.pol_Uh.evaluate(vEval);
         pQh3=ts.pol_Qh.evaluate(vEval);
-        res+=polXYZSummary(i,"U_h",pUh3);
-        res+=polXYZSummary(i,"Q_h",pQh3);
-        res+=polXYZSummary(i,"20G",p20G3);
-        res1T=runTest(p20G3,pUh3,pQh3,i);
-        for(long i=0;i<res1T.allBoxes.size();++i){
-            CPC::Box<Frac> currentBox=res1T.allBoxes[i];
+        res+=polXYZSummary("U_h",pUh3);
+        res+=polXYZSummary("Q_h",pQh3);
+        res+=polXYZSummary("20G",p20G3);
+        res1T=runTest(p20G3,pUh3,pQh3);
+        for(long iBox=0;iBox<res1T.allBoxes.size();++iBox){
+            CPC::Box<Frac> currentBox=res1T.allBoxes[iBox];
             resB+="[";
-            for(long i=0;i<3;++i){
-                resB+="[["+PA::printDiadicRational(currentBox.ls[i])+"][";
-                resB+=PA::printDiadicRational(currentBox.hs[i])+"]]";
+            for(long iCoord=0;iCoord<3;++iCoord){
+                resB+="[["+PA::printDiadicRational(currentBox.ls[iCoord])+"][";
+                resB+=PA::printDiadicRational(currentBox.hs[iCoord])+"]]";
             }
             resB+="["+std::to_string(currentBox.inequalityCode)+"]";
             resB+="]\n";
