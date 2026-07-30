@@ -4,9 +4,9 @@
   "license": "MIT",
   "creators": [
     { "name": "Matić, Ivan",
-      "affiliation": "Baruch College, City University of New York" },
+      "affiliation": "Baruch College, City University of New York", "orcid": "0009-0002-6216-3393" },
     { "name": "Radoičić, Radoš",
-      "affiliation": "Baruch College, City University of New York" }
+      "affiliation": "Baruch College, City University of New York", "orcid": "0009-0001-3916-7882" }
   ],
   "description": "Exact-arithmetic verifier and certificate for the proof that at most six pairwise non-overlapping infinite unit cylinders can touch a unit ball."
 }
