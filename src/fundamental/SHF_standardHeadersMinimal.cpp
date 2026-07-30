@@ -41,8 +41,11 @@
 #include <experimental/filesystem>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/random.h>
 #include <grp.h>
 #include <pwd.h>
+#include <thread>
+#include <atomic>
 #ifndef IOF_NO_SPAWN
 #include <spawn.h>
 #include <sys/wait.h>
