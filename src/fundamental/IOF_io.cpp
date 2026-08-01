@@ -499,7 +499,7 @@ int sys_mkdir(const std::string &folderName){
     std::error_code ec;
     std::experimental::filesystem::create_directory(folderName, ec);
     if(GL_wadmins.gid != static_cast<gid_t>(-1)){
-      chown(folderName.c_str(), static_cast<uid_t>(-1), GL_wadmins.gid);
+      int chRes=chown(folderName.c_str(), static_cast<uid_t>(-1), GL_wadmins.gid);
     }
     std::experimental::filesystem::permissions(
         folderName,
