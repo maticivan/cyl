@@ -1,7 +1,7 @@
 //*************************************************************************************************
 //*************************************************************************************************
 //* The MIT License (MIT)                                                                         *
-//* Copyright (C) 2026 Ivan Matic and Rados Radoicic                                              *
+//* Copyright (C) 2026 Ivan Matic                                                                 *
 //*                                                                                               *
 //* Permission is hereby granted, free of charge, to any person obtaining a copy of this          *
 //* software and associated documentation files (the "Software"), to deal in the Software         *
@@ -67,8 +67,8 @@ namespace ssm{
     set();
     set(const set &);
     set& operator=(const set &);
-    set(set&&);
-    set& operator=(set &&);
+    set(set&&) noexcept;
+    set& operator=(set &&) noexcept;
     long size() const;
     long erase(const KEY & );
     long erase(const set & );
@@ -287,7 +287,7 @@ namespace ssm{
     _dRoot= duplicateTree(_copyFrom._dRoot);
     _size= _copyFrom._size;
   }
-  template<typename KEY> set<KEY>::set( set<KEY>&& _moveFrom){
+  template<typename KEY> set<KEY>::set(set<KEY>&& _moveFrom) noexcept{
     _size= _moveFrom._size;
     _moveFrom._size=0;
     _dRoot=_moveFrom._dRoot;
@@ -303,13 +303,10 @@ namespace ssm{
     return *this;
   }
   template<typename KEY> set<KEY>&
-     set<KEY>::operator=( set<KEY>&& _moveFrom){
+     set<KEY>::operator=( set<KEY>&& _moveFrom) noexcept{
     if(&_moveFrom!=this){
-      clear();
-      _size= _moveFrom._size;
-      _dRoot= _moveFrom._dRoot;
-      _moveFrom._size=0;
-      _moveFrom._dRoot=nullptr;
+      AVLNode* tRoot = _dRoot; _dRoot=_moveFrom._dRoot; _moveFrom._dRoot=tRoot;
+      long tSize = _size; _size=_moveFrom._size; _moveFrom._size=tSize;
     }
     return *this;
   }
